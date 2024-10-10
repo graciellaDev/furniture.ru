@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Models\Product;
 use App\Http\Resources\ProductCollection;
 use App\Http\Controllers\api\AuthController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\api\ProductController;
 
 Route::controller(AuthController::class)->group(function () {
     Route::post('login', 'login');
@@ -20,41 +20,17 @@ Route::group(['middleware' => 'auth:api'], function () {
         Route::post('register', 'register');
     });
 
-    Route::get('/products', function () {
-        $products = Product::select(['*']);
-        $limit = request()->limit;
-        $filters = request()->get('filters');
-
-        if (!empty($filters)) {
-            $filters = explode(';', $filters);
-            foreach ($filters as $key => $value) {
-                $value = explode(':', $value);
-                if (!(count($value) == 1 || $value[1] == '')) {
-                    $filters[$value[0]] = explode(',', $value[1]);
-                }
-                unset($filters[$key]);
-            }
-            foreach ($filters as $key => $value) {
-                switch ($key) {
-                    case 'price':
-                        $products = $products->where('price', $value);
-                        break;
-                    case 'status':
-                        $products = $products->where('status', $value);
-                        break;
-                    default:
-                        break;
-                }
-            }
+    Route::get('/products', [ProductController::class, 'list']);
+    Route::post('add/product', [ProductController::class, 'add']);
+    Route::match(['get', 'put', 'delete'], '/product/{id}', function (string $id) {
+        $method = request()->method();
+        switch ($method) {
+            case 'GET' :
+                return new ProductCollection(Product::findOrFail($id));
+            case 'PUT':
+                return ProductController::update($id);
+            case 'DELETE' :
+                return ProductController::delete($id);
         }
-
-        return new ProductCollection($products->paginate($limit));
     });
-
-
-    Route::get('/product/{id}', function (string $id) {
-
-        return new ProductCollection(Product::findOrFail($id));
-    });
-
 });
